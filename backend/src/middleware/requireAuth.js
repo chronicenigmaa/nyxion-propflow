@@ -1,11 +1,17 @@
 import { createClient } from "@supabase/supabase-js";
+import ws from "ws";
 import dotenv from "dotenv";
 
 dotenv.config();
 
 const supabase = createClient(
   process.env.SUPABASE_URL,
-  process.env.SUPABASE_SERVICE_ROLE_KEY
+  process.env.SUPABASE_SERVICE_ROLE_KEY,
+  {
+    realtime: {
+      transport: ws,
+    },
+  }
 );
 
 // Attach this to any route that requires a logged-in user
