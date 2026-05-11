@@ -4,34 +4,34 @@ import { useAuthStore } from "../store/authStore.js";
 import { DEMO_USER } from "../data/demo.js";
 
 const NAV = [
-  { section: "Overview", items: [
-    { to: "/", icon: "ti-layout-dashboard", label: "Dashboard" },
-    { to: "/clients", icon: "ti-users", label: "Clients", badge: 3 },
+  { section:"Overview", items:[
+    { to:"/",           icon:"ti-layout-dashboard",  label:"Dashboard"              },
+    { to:"/clients",    icon:"ti-users",             label:"Clients",    badge:3    },
   ]},
-  { section: "Property", items: [
-    { to: "/units", icon: "ti-building-estate", label: "Units" },
-    { to: "/bookings", icon: "ti-calendar-event", label: "Bookings" },
-    { to: "/leases", icon: "ti-file-text", label: "Leases" },
+  { section:"Property", items:[
+    { to:"/projects",   icon:"ti-building",          label:"Projects"               },
+    { to:"/units",      icon:"ti-home",              label:"Units"                  },
+    { to:"/bookings",   icon:"ti-calendar-event",    label:"Bookings"               },
+    { to:"/leases",     icon:"ti-file-text",         label:"Leases"                 },
   ]},
-  { section: "Finance", items: [
-    { to: "/payments", icon: "ti-receipt-2", label: "Payments", badge: 2 },
-    { to: "/forecast", icon: "ti-trending-up", label: "Forecast" },
+  { section:"Finance", items:[
+    { to:"/payments",   icon:"ti-receipt-2",         label:"Payments",   badge:2    },
+    { to:"/financials", icon:"ti-chart-bar",         label:"Financials"             },
   ]},
-  { section: "AI Tools", items: [
-    { to: "/whatsapp", icon: "ti-brand-whatsapp", label: "WA Summaries" },
-    { to: "/nudges", icon: "ti-send", label: "Nudges", badge: 5 },
-    { to: "/risks", icon: "ti-shield-exclamation", label: "Risk Monitor", badge: 3 },
-    { to: "/docparser", icon: "ti-scan", label: "Doc Parser" },
+  { section:"AI Tools", items:[
+    { to:"/whatsapp",   icon:"ti-brand-whatsapp",    label:"WA Summaries"           },
+    { to:"/nudges",     icon:"ti-send",              label:"Nudges",     badge:5    },
+    { to:"/risks",      icon:"ti-shield-exclamation",label:"Risk Monitor",badge:3   },
+    { to:"/docparser",  icon:"ti-scan",              label:"Doc Parser"             },
   ]},
 ];
 
 export function Sidebar() {
   const { logout } = useAuthStore();
-  const user = DEMO_USER; // swap: useAuthStore(s => s.user)
+  const user = DEMO_USER;
 
   return (
     <aside className="w-52 min-w-52 bg-white border-r border-gray-200 flex flex-col font-sans">
-      {/* Logo */}
       <div className="flex items-center gap-2 px-4 py-4 border-b border-gray-100">
         <div className="w-7 h-7 bg-brand-500 rounded-lg flex items-center justify-center shrink-0">
           <i className="ti ti-building-estate text-white text-base" aria-hidden />
@@ -42,26 +42,19 @@ export function Sidebar() {
         </div>
       </div>
 
-      {/* Nav */}
       <nav className="flex-1 px-2 py-2 overflow-y-auto scrollbar-thin">
-        {NAV.map((sec) => (
+        {NAV.map(sec => (
           <div key={sec.section}>
             <div className="text-[10px] font-semibold text-gray-400 uppercase tracking-widest px-2 pt-3 pb-1">
               {sec.section}
             </div>
-            {sec.items.map((item) => (
-              <NavLink
-                key={item.to}
-                to={item.to}
-                end={item.to === "/"}
+            {sec.items.map(item => (
+              <NavLink key={item.to} to={item.to} end={item.to === "/"}
                 className={({ isActive }) =>
                   `flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-[13px] mb-0.5 transition-all duration-100 ${
-                    isActive
-                      ? "bg-blue-50 text-brand-500 font-medium"
-                      : "text-gray-600 hover:bg-gray-50"
+                    isActive ? "bg-blue-50 text-brand-500 font-medium" : "text-gray-600 hover:bg-gray-50"
                   }`
-                }
-              >
+                }>
                 <i className={`ti ${item.icon} text-[15px] w-4 text-center`} aria-hidden />
                 <span className="flex-1">{item.label}</span>
                 {item.badge && (
@@ -75,12 +68,9 @@ export function Sidebar() {
         ))}
       </nav>
 
-      {/* User */}
       <div className="px-2 py-2.5 border-t border-gray-100">
-        <button
-          onClick={logout}
-          className="w-full flex items-center gap-2 px-2.5 py-2 rounded-lg hover:bg-gray-50 transition-colors"
-        >
+        <button onClick={logout}
+          className="w-full flex items-center gap-2 px-2.5 py-2 rounded-lg hover:bg-gray-50 transition-colors">
           <Avatar name={user?.name || "User"} size={26} />
           <div className="flex-1 text-left min-w-0">
             <div className="text-[12px] font-medium text-gray-800 truncate">{user?.name}</div>

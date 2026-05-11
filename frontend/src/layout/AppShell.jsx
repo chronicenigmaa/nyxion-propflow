@@ -1,19 +1,20 @@
 import { Outlet, useLocation } from "react-router-dom";
 import { Sidebar } from "./Sidebar.jsx";
-import { Topbar } from "./Topbar.jsx";
+import { Topbar }  from "./Topbar.jsx";
 
 const PAGE_META = {
-  "/":          ["Dashboard",          "Sunday, 11 May 2025 · Karachi, Pakistan"],
-  "/clients":   ["Clients",            "8 clients · AI lead scored"],
-  "/units":     ["Units",              "8 units · 6 leased · 2 vacant"],
-  "/bookings":  ["Bookings",           "Upcoming and confirmed bookings"],
-  "/leases":    ["Leases",             "Active lease agreements"],
-  "/payments":  ["Payments",           "AI payment intelligence · May 2025"],
-  "/forecast":  ["Revenue forecast",   "AI projected · next 6 months"],
-  "/whatsapp":  ["WhatsApp summaries", "AI analysed conversations"],
-  "/nudges":    ["Smart nudges",       "AI follow-up recommendations"],
-  "/risks":     ["Risk monitor",       "AI flagged issues"],
-  "/docparser": ["Document parser",    "AI OCR and field extraction"],
+  "/":           ["Dashboard",       "Karachi, Pakistan"],
+  "/clients":    ["Clients",         "AI lead scored · 8 clients"],
+  "/projects":   ["Projects",        "5 buildings · 20 units tracked"],
+  "/units":      ["Units",           "20 units · 15 leased · 5 vacant"],
+  "/bookings":   ["Bookings",        "Viewings, signings, and inspections"],
+  "/leases":     ["Leases",          "Active lease agreements"],
+  "/payments":   ["Payments",        "AI payment intelligence · May 2025"],
+  "/financials": ["Financials",      "Revenue by project · AI forecast"],
+  "/whatsapp":   ["WA Summaries",    "AI analysed · Roman Urdu supported"],
+  "/nudges":     ["Smart nudges",    "AI follow-up recommendations"],
+  "/risks":      ["Risk monitor",    "AI flagged issues"],
+  "/docparser":  ["Document parser", "AI OCR and field extraction"],
 };
 
 export function AppShell() {
