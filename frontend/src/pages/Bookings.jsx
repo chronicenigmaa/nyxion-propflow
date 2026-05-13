@@ -4,30 +4,31 @@ import { Button } from "../components/Button.jsx";
 import { Input } from "../components/Input.jsx";
 import { BOOKINGS, CLIENTS, UNITS, PROJECTS } from "../data/demo.js";
 
+const TYPE_OPTS   = ["viewing","signing","inspection"];
+const STATUS_OPTS = ["scheduled","completed","cancelled"];
+
 const TYPE_STYLES = {
   viewing:    { color:"blue",   icon:"ti-eye",       label:"Viewing"    },
   signing:    { color:"green",  icon:"ti-signature", label:"Signing"    },
   inspection: { color:"purple", icon:"ti-tools",     label:"Inspection" },
 };
-
 const STATUS_STYLES = {
   scheduled: { color:"blue",  label:"Scheduled" },
   completed: { color:"green", label:"Completed" },
   cancelled: { color:"red",   label:"Cancelled" },
 };
 
-const sel = (err) => ({
-  height:40, width:"100%", borderRadius:8,
-  border:`1px solid ${err?"#E02424":"#D1D5DB"}`,
-  padding:"0 12px", fontSize:14, color:"#111827",
-  fontFamily:"inherit", outline:"none", background:"#fff",
+const sel = err => ({
+  height:36, borderRadius:8, border:`1px solid ${err?"#E02424":"#D1D5DB"}`,
+  padding:"0 10px", fontSize:13, color:"#111827", fontFamily:"inherit",
+  outline:"none", background:"#fff", cursor:"pointer",
 });
 
 function AddBookingModal({ onClose, onAdd }) {
   const [form, setForm] = useState({ clientId:"", unitId:"", visitDate:"", visitTime:"", type:"viewing", notes:"" });
   const [errors, setErrors] = useState({});
   const [loading, setLoading] = useState(false);
-  const set = k => e => setForm(f => ({ ...f, [k]: e.target.value }));
+  const set = k => e => setForm(f=>({...f,[k]:e.target.value}));
 
   const validate = () => {
     const e = {};
@@ -42,7 +43,7 @@ function AddBookingModal({ onClose, onAdd }) {
     const e = validate(); setErrors(e);
     if (Object.keys(e).length) return;
     setLoading(true);
-    await new Promise(r => setTimeout(r, 700));
+    await new Promise(r=>setTimeout(r,700));
     setLoading(false);
     onAdd({ ...form, id:"B_NEW_"+Date.now(), status:"scheduled" });
     onClose();
@@ -65,7 +66,7 @@ function AddBookingModal({ onClose, onAdd }) {
             <label style={{ fontSize:13, fontWeight:500, color:"#374151" }}>Client</label>
             <select value={form.clientId} onChange={set("clientId")} style={sel(errors.clientId)}>
               <option value="">Select client…</option>
-              {CLIENTS.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+              {CLIENTS.map(c=><option key={c.id} value={c.id}>{c.name}</option>)}
             </select>
             {errors.clientId && <span style={{ fontSize:12, color:"#E02424" }}>{errors.clientId}</span>}
           </div>
@@ -73,8 +74,8 @@ function AddBookingModal({ onClose, onAdd }) {
             <label style={{ fontSize:13, fontWeight:500, color:"#374151" }}>Unit</label>
             <select value={form.unitId} onChange={set("unitId")} style={sel(errors.unitId)}>
               <option value="">Select unit…</option>
-              {UNITS.map(u => {
-                const project = PROJECTS.find(p => p.id === u.projectId);
+              {UNITS.map(u=>{
+                const project = PROJECTS.find(p=>p.id===u.projectId);
                 return <option key={u.id} value={u.id}>{project?.name} — Unit {u.unitNo} (Floor {u.floor})</option>;
               })}
             </select>
@@ -115,6 +116,9 @@ export function BookingsPage() {
   const [showModal, setShowModal] = useState(false);
   const [filter, setFilter] = useState("all");
 
+  const update = (id, field, value) =>
+    setBookings(prev => prev.map(b => b.id === id ? { ...b, [field]: value } : b));
+
   const filtered  = bookings.filter(b => filter === "all" || b.status === filter);
   const upcoming  = bookings.filter(b => b.status === "scheduled").length;
   const completed = bookings.filter(b => b.status === "completed").length;
@@ -128,7 +132,7 @@ export function BookingsPage() {
           [completed, "Completed", "#057A55","#F3FAF7","ti-circle-check"  ],
           [cancelled, "Cancelled", "#E02424","#FDF2F2","ti-calendar-x"    ],
         ].map(([v,l,fg,bg,ic])=>(
-          <div key={l} className="bg-white border border-gray-200 rounded-xl p-4">
+          <div key={l} className="bg-white border border-gray-200 rounded-xl p-4 shadow-sm">
             <div className="flex items-center gap-2 mb-2">
               <div className="w-7 h-7 rounded-lg flex items-center justify-center" style={{ background:bg }}>
                 <i className={`ti ${ic} text-[14px]`} style={{ color:fg }} aria-hidden />
@@ -139,36 +143,37 @@ export function BookingsPage() {
           </div>
         ))}
       </div>
+
       <div className="flex items-center justify-between mb-4">
         <div className="flex gap-1.5">
           {[["all","All"],["scheduled","Scheduled"],["completed","Completed"],["cancelled","Cancelled"]].map(([v,l])=>(
             <button key={v} onClick={()=>setFilter(v)}
-              className={`px-3.5 py-1.5 rounded-lg border text-[12px] font-medium transition-colors ${filter===v?"border-brand-500 bg-blue-50 text-brand-500":"border-gray-200 bg-white text-gray-600 hover:bg-gray-50"}`}>
+              className={`px-3.5 py-1.5 rounded-lg border text-[12px] font-medium transition-colors ${filter===v?"border-brand-500 bg-blue-50 text-brand-500":"border-gray-200 bg-white text-gray-600 hover:bg-gray-100"}`}>
               {l}
             </button>
           ))}
         </div>
-        <Button icon="ti-calendar-plus" onClick={() => setShowModal(true)}>Schedule booking</Button>
+        <Button icon="ti-calendar-plus" onClick={()=>setShowModal(true)}>Schedule booking</Button>
       </div>
+
       <Card>
-        <div className="grid px-4 py-2.5 border-b border-gray-200 text-[11px] font-semibold text-gray-400 uppercase tracking-wider"
-          style={{ gridTemplateColumns:"2fr 2fr 1fr 1fr 100px 80px" }}>
+        <div className="grid px-4 py-3 border-b border-gray-200 text-[11px] font-semibold text-gray-400 uppercase tracking-wider bg-gray-50 rounded-t-xl"
+          style={{ gridTemplateColumns:"2fr 2fr 1fr 1fr 130px 130px" }}>
           <span>Client</span><span>Unit</span><span>Date</span><span>Time</span><span>Type</span><span>Status</span>
         </div>
-        {filtered.map(b => {
-          const client  = CLIENTS.find(c => c.id === b.clientId);
-          const unit    = UNITS.find(u => u.id === b.unitId);
-          const project = unit ? PROJECTS.find(p => p.id === unit.projectId) : null;
-          const ts = TYPE_STYLES[b.type] || TYPE_STYLES.viewing;
-          const ss = STATUS_STYLES[b.status] || STATUS_STYLES.scheduled;
+        {filtered.map(b=>{
+          const client  = CLIENTS.find(c=>c.id===b.clientId);
+          const unit    = UNITS.find(u=>u.id===b.unitId);
+          const project = unit ? PROJECTS.find(p=>p.id===unit.projectId) : null;
+          const ts = TYPE_STYLES[b.type]||TYPE_STYLES.viewing;
           return (
             <div key={b.id} className="grid items-center px-4 py-3 border-b border-gray-100 hover:bg-gray-50 transition-colors"
-              style={{ gridTemplateColumns:"2fr 2fr 1fr 1fr 100px 80px" }}>
+              style={{ gridTemplateColumns:"2fr 2fr 1fr 1fr 130px 130px" }}>
               <div className="flex items-center gap-2.5">
                 {client && <Avatar name={client.name} size={30} />}
                 <div>
-                  <div className="text-[13px] font-medium text-gray-900">{client?.name || "–"}</div>
-                  <div className="text-[11px] text-gray-400">{b.notes?.slice(0,40)}{b.notes?.length>40?"…":""}</div>
+                  <div className="text-[13px] font-medium text-gray-900">{client?.name||"–"}</div>
+                  <div className="text-[11px] text-gray-400 truncate max-w-[160px]">{b.notes?.slice(0,35)}{b.notes?.length>35?"…":""}</div>
                 </div>
               </div>
               <div>
@@ -177,17 +182,27 @@ export function BookingsPage() {
               </div>
               <div className="text-[13px] text-gray-700">{b.visitDate}</div>
               <div className="text-[13px] text-gray-700">{b.visitTime}</div>
-              <div className="flex items-center gap-1.5">
-                <i className={`ti ${ts.icon} text-[13px]`} style={{ color:ts.color==="blue"?"#1C64F2":ts.color==="green"?"#057A55":"#6C2BD9" }} aria-hidden />
-                <span className="text-[12px] text-gray-600">{ts.label}</span>
-              </div>
-              <Pill color={ss.color}>{ss.label}</Pill>
+
+              {/* Editable type */}
+              <select value={b.type} onChange={e=>update(b.id,"type",e.target.value)}
+                style={{ ...sel(false), fontSize:12, height:30, width:120 }}>
+                {TYPE_OPTS.map(t=><option key={t} value={t}>{TYPE_STYLES[t].label}</option>)}
+              </select>
+
+              {/* Editable status */}
+              <select value={b.status} onChange={e=>update(b.id,"status",e.target.value)}
+                style={{ ...sel(false), fontSize:12, height:30, width:120,
+                  color: b.status==="completed"?"#057A55":b.status==="cancelled"?"#E02424":"#1C64F2",
+                  fontWeight:500 }}>
+                {STATUS_OPTS.map(s=><option key={s} value={s}>{STATUS_STYLES[s].label}</option>)}
+              </select>
             </div>
           );
         })}
-        {filtered.length === 0 && <div className="py-10 text-center text-[13px] text-gray-400">No bookings found.</div>}
+        {filtered.length===0 && <div className="py-10 text-center text-[13px] text-gray-400">No bookings found.</div>}
       </Card>
-      {showModal && <AddBookingModal onClose={() => setShowModal(false)} onAdd={b => setBookings(prev => [b, ...prev])} />}
+
+      {showModal && <AddBookingModal onClose={()=>setShowModal(false)} onAdd={b=>setBookings(prev=>[b,...prev])} />}
     </div>
   );
 }

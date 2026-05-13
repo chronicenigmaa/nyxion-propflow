@@ -1,6 +1,6 @@
 import { Card, PanelHead, Pill } from "../components/index.jsx";
 import { fmt } from "../lib/utils.js";
-import { PROJECTS, UNITS, PAYMENTS, PROJECT_REVENUE, FORECAST } from "../data/demo.js";
+import { PROJECTS, UNITS, CLIENTS, PAYMENTS, PROJECT_REVENUE, FORECAST } from "../data/demo.js";
 
 export function FinancialsPage() {
   const totalCollected = PAYMENTS.filter(p=>p.status==="paid").reduce((a,p)=>a+p.amount,0);
@@ -20,7 +20,7 @@ export function FinancialsPage() {
           [fmt(totalOverdue),   "Overdue",              "#E02424","#FDF2F2","ti-clock-exclamation" ],
           [fmt(totalUpcoming),  "Due soon",             "#B45309","#FFFBEB","ti-calendar-time"    ],
         ].map(([v,l,fg,bg,ic])=>(
-          <div key={l} className="bg-white border border-gray-200 rounded-xl p-4" style={{ borderTop:`3px solid ${fg}` }}>
+          <div key={l} className="bg-white border border-gray-200 rounded-xl p-4 shadow-sm" style={{ borderTop:`3px solid ${fg}` }}>
             <div className="flex items-center gap-2 mb-2.5">
               <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ background:bg }}>
                 <i className={`ti ${ic} text-base`} style={{ color:fg }} aria-hidden />
@@ -43,7 +43,7 @@ export function FinancialsPage() {
                 <div key={rev.projectId}>
                   <div className="flex items-center justify-between mb-2">
                     <div className="flex items-center gap-2">
-                      <div className="w-2 h-2 rounded-full" style={{ background:project.color }} />
+                      <div className="w-2.5 h-2.5 rounded-full" style={{ background:project.color }} />
                       <span className="text-[13px] font-medium text-gray-800">{project.name}</span>
                     </div>
                     <span className="text-[13px] font-semibold font-mono text-gray-900">{fmt(rev.collected)}</span>
@@ -55,8 +55,8 @@ export function FinancialsPage() {
                     <span className="text-[11px] text-gray-400 w-8 text-right">{Math.round((rev.collected/totalRevenue)*100)}%</span>
                   </div>
                   <div className="flex gap-3 mt-1.5">
-                    {rev.overdue  > 0 && <span className="text-[11px] text-red-500">{fmt(rev.overdue)} overdue</span>}
-                    {rev.upcoming > 0 && <span className="text-[11px] text-blue-500">{fmt(rev.upcoming)} upcoming</span>}
+                    {rev.overdue  > 0 && <span className="text-[11px] text-red-500 font-medium">{fmt(rev.overdue)} overdue</span>}
+                    {rev.upcoming > 0 && <span className="text-[11px] text-blue-500 font-medium">{fmt(rev.upcoming)} upcoming</span>}
                   </div>
                 </div>
               );
@@ -69,9 +69,7 @@ export function FinancialsPage() {
           <div className="p-4">
             <div className="flex justify-between items-baseline mb-5">
               <div>
-                <div className="text-2xl font-bold font-mono text-emerald-600">
-                  {fmt(FORECAST.reduce((a,f)=>a+f.projected,0))}
-                </div>
+                <div className="text-2xl font-bold font-mono text-emerald-600">{fmt(FORECAST.reduce((a,f)=>a+f.projected,0))}</div>
                 <div className="text-[11px] text-gray-400 mt-1">projected 6-month total</div>
               </div>
               <Pill color="green">High confidence</Pill>
@@ -98,15 +96,15 @@ export function FinancialsPage() {
             PAYMENTS.filter(p=>p.status==="overdue").map(p => {
               const unit    = UNITS.find(u=>u.id===p.unitId);
               const project = unit ? PROJECTS.find(pr=>pr.id===unit.projectId) : null;
-              const client  = p.clientId ? require("../data/demo.js").CLIENTS?.find(c=>c.id===p.clientId) : null;
+              const client  = CLIENTS.find(c=>c.id===p.clientId);
               return (
                 <div key={p.id} className="flex items-center gap-4 py-3.5 border-b border-gray-100">
                   <div className="w-10 h-10 rounded-xl bg-red-50 flex items-center justify-center shrink-0">
                     <i className="ti ti-clock-exclamation text-red-500 text-lg" aria-hidden />
                   </div>
                   <div className="flex-1">
-                    <div className="text-[13px] font-medium text-gray-900">{project?.name} — Unit {unit?.unitNo}</div>
-                    <div className="text-[12px] text-gray-400 mt-0.5">{p.daysLate} days overdue · due {p.due}</div>
+                    <div className="text-[13px] font-medium text-gray-900">{client?.name} — {project?.name}</div>
+                    <div className="text-[12px] text-gray-400 mt-0.5">Unit {unit?.unitNo} · {p.daysLate} days overdue · due {p.due}</div>
                   </div>
                   <div className="text-right">
                     <div className="text-[15px] font-bold font-mono text-red-500">{fmt(p.amount)}</div>
@@ -124,12 +122,12 @@ export function FinancialsPage() {
         <div className="p-4">
           <div className="grid grid-cols-5 gap-3">
             {PROJECTS.map(project => {
-              const units  = UNITS.filter(u => u.projectId === project.id);
-              const leased = units.filter(u => u.status === "leased").length;
-              const vacant = units.filter(u => u.status === "vacant").length;
-              const pct    = units.length ? Math.round((leased/units.length)*100) : 0;
+              const units   = UNITS.filter(u => u.projectId === project.id);
+              const leased  = units.filter(u => u.status === "leased").length;
+              const vacant  = units.filter(u => u.status === "vacant").length;
+              const pct     = units.length ? Math.round((leased/units.length)*100) : 0;
               return (
-                <div key={project.id} className="bg-gray-50 rounded-xl p-3 text-center">
+                <div key={project.id} className="bg-gray-50 rounded-xl p-3 text-center border border-gray-100">
                   <div className="text-[11px] text-gray-500 font-medium mb-2 leading-tight">{project.name.split(" ").slice(0,2).join(" ")}</div>
                   <div className="relative w-14 h-14 mx-auto mb-2">
                     <svg viewBox="0 0 36 36" className="w-full h-full -rotate-90">
@@ -141,8 +139,8 @@ export function FinancialsPage() {
                       <span className="text-[12px] font-bold font-mono text-gray-800">{pct}%</span>
                     </div>
                   </div>
-                  <div className="text-[11px] text-emerald-600">{leased} leased</div>
-                  {vacant > 0 && <div className="text-[11px] text-amber-500">{vacant} vacant</div>}
+                  <div className="text-[11px] text-emerald-600 font-medium">{leased} leased</div>
+                  {vacant > 0 && <div className="text-[11px] text-amber-500 font-medium">{vacant} vacant</div>}
                 </div>
               );
             })}
