@@ -22,11 +22,11 @@ export function AppShell() {
   const [title, sub] = PAGE_META[pathname] || ["Propflow", ""];
 
   return (
-    <div className="flex h-screen bg-gray-50 overflow-hidden font-sans">
+    <div className="flex h-screen bg-slate-100 overflow-hidden font-sans">
       <Sidebar />
       <div className="flex flex-col flex-1 overflow-hidden">
         <Topbar title={title} sub={sub} />
-        <main className="flex-1 overflow-y-auto scrollbar-thin">
+        <main className="flex-1 overflow-y-auto scrollbar-thin p-0">
           <Outlet />
         </main>
       </div>
