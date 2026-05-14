@@ -3,11 +3,8 @@ import { Card, PanelHead, Avatar, Pill, Alert } from "../components/index.jsx";
 import { Button } from "../components/Button.jsx";
 import { Input } from "../components/Input.jsx";
 import { fmt, scoreColor } from "../lib/utils.js";
-import {
-  CLIENTS as DEMO_CLIENTS,
-  UNITS, PROJECTS, NUDGES,
-  BOOKINGS as DEMO_BOOKINGS,
-} from "../data/demo.js";
+import { useAppStore } from "../store/appStore.js";
+import { UNITS, PROJECTS, BOOKINGS as DEMO_BOOKINGS } from "../data/demo.js";
 
 const sel = (err) => ({
   height:40, width:"100%", borderRadius:8, border:`1px solid ${err?"#E02424":"#D1D5DB"}`,
@@ -34,8 +31,8 @@ function Modal({ title, sub, onClose, children, footer }) {
   );
 }
 
-// ─── Add Client Modal ─────────────────────────────────────────────────────────
-function AddClientModal({ onClose, onAdd }) {
+function AddClientModal({ onClose }) {
+  const { addClient, units } = useAppStore();
   const [form, setForm] = useState({ name:"", email:"", phone:"", cnic:"", city:"", unitId:"", notes:"", status:"Prospect" });
   const [errors, setErrors] = useState({});
   const [loading, setLoading] = useState(false);
@@ -56,10 +53,10 @@ function AddClientModal({ onClose, onAdd }) {
     setLoading(true);
     await new Promise(r => setTimeout(r, 700));
     setLoading(false);
-    const unit = form.unitId ? UNITS.find(u => u.id === form.unitId) : null;
-    onAdd({
+    const unit = form.unitId ? units.find(u => u.id === form.unitId) : null;
+    addClient({
       ...form, id:"C_NEW_"+Date.now(), score:50,
-      statusColor: form.status==="Prospect"?"blue":form.status==="Active"?"green":"blue",
+      statusColor: form.status==="Active"?"green":form.status==="Prospect"?"blue":"blue",
       paymentStatus:"prospect", rentAmount:unit?.rent||null,
       waSummary:"No conversation recorded yet.",
       waSummaryUrdu:"Abhi koi baat nahi hui.",
@@ -68,6 +65,8 @@ function AddClientModal({ onClose, onAdd }) {
     });
     onClose();
   };
+
+  const vacantUnits = units.filter(u => u.status==="vacant");
 
   return (
     <Modal title="Add new client" sub="Tenant, prospect, or buyer" onClose={onClose}
@@ -92,7 +91,7 @@ function AddClientModal({ onClose, onAdd }) {
         <label style={{ fontSize:13, fontWeight:500, color:"#374151" }}>Assign vacant unit (optional)</label>
         <select value={form.unitId} onChange={set("unitId")} style={sel(false)}>
           <option value="">No unit assigned</option>
-          {UNITS.filter(u => u.status==="vacant").map(u => {
+          {vacantUnits.map(u => {
             const p = PROJECTS.find(pr => pr.id===u.projectId);
             return <option key={u.id} value={u.id}>{p?.name} — Unit {u.unitNo} (Floor {u.floor}) · {fmt(u.rent)}/mo</option>;
           })}
@@ -100,7 +99,7 @@ function AddClientModal({ onClose, onAdd }) {
       </div>
       <div style={{ display:"flex", flexDirection:"column", gap:4 }}>
         <label style={{ fontSize:13, fontWeight:500, color:"#374151" }}>Notes (optional)</label>
-        <textarea value={form.notes} onChange={set("notes")} placeholder="Referral source, budget, requirements…" rows={2}
+        <textarea value={form.notes} onChange={set("notes")} placeholder="Referral, budget, requirements…" rows={2}
           style={{ borderRadius:8, border:"1px solid #D1D5DB", padding:"10px 12px", fontSize:14, color:"#111827", fontFamily:"inherit", outline:"none", resize:"none" }}
           onFocus={e=>{e.target.style.borderColor="#1C64F2";e.target.style.boxShadow="0 0 0 3px #EBF5FF";}}
           onBlur={e=>{e.target.style.borderColor="#D1D5DB";e.target.style.boxShadow="none";}}
@@ -110,8 +109,8 @@ function AddClientModal({ onClose, onAdd }) {
   );
 }
 
-// ─── Book Viewing Modal ───────────────────────────────────────────────────────
-function BookViewingModal({ client, onClose, onBook }) {
+function BookViewingModal({ client, onClose }) {
+  const { addBooking, units } = useAppStore();
   const [form, setForm] = useState({ unitId:"", visitDate:"", visitTime:"", type:"viewing", notes:"" });
   const [errors, setErrors] = useState({});
   const [loading, setLoading] = useState(false);
@@ -131,7 +130,7 @@ function BookViewingModal({ client, onClose, onBook }) {
     setLoading(true);
     await new Promise(r => setTimeout(r, 600));
     setLoading(false);
-    onBook({ ...form, id:"B_NEW_"+Date.now(), clientId:client.id, status:"scheduled" });
+    addBooking({ ...form, id:"B_NEW_"+Date.now(), clientId:client.id, status:"scheduled" });
     onClose();
   };
 
@@ -142,7 +141,7 @@ function BookViewingModal({ client, onClose, onBook }) {
         <label style={{ fontSize:13, fontWeight:500, color:"#374151" }}>Unit</label>
         <select value={form.unitId} onChange={set("unitId")} style={sel(errors.unitId)}>
           <option value="">Select unit…</option>
-          {UNITS.map(u => {
+          {units.map(u => {
             const p = PROJECTS.find(pr => pr.id===u.projectId);
             return <option key={u.id} value={u.id}>{p?.name} — Unit {u.unitNo} (Floor {u.floor})</option>;
           })}
@@ -173,8 +172,8 @@ function BookViewingModal({ client, onClose, onBook }) {
   );
 }
 
-// ─── Log WA Chat Modal ────────────────────────────────────────────────────────
-function LogWAModal({ client, onClose, onSave }) {
+function LogWAModal({ client, onClose }) {
+  const { updateClient } = useAppStore();
   const [chatText, setChatText] = useState("");
   const [loading, setLoading]   = useState(false);
   const [result, setResult]     = useState(null);
@@ -189,42 +188,42 @@ function LogWAModal({ client, onClose, onSave }) {
         method:"POST", headers:{ "Content-Type":"application/json" },
         body: JSON.stringify({ clientName:client.name, chatText }),
       });
-      if (!res.ok) throw new Error("failed");
-      const data = await res.json();
-      setResult(data);
+      if (!res.ok) throw new Error();
+      setResult(await res.json());
     } catch {
-      // Fallback demo summary if backend not running
       setResult({
-        summaryEn: `Conversation with ${client.name} reviewed. Client discussed property requirements and showed interest in available units.`,
-        summaryUrdu: `${client.name} ke saath baat hui. Unit dekhne mein interest dikhaya.`,
-        sentiment: "positive",
-        tags: ["Reviewed", "Interested"],
-        nudge: "Follow up within 48 hours with unit options.",
+        summaryEn:`Conversation with ${client.name} reviewed. Client discussed property requirements.`,
+        summaryUrdu:`${client.name} ke saath baat hui. Unit dekhne mein interest dikhaya.`,
+        sentiment:"positive", tags:["Reviewed","Interested"],
+        nudge:"Follow up within 48 hours with unit options.",
       });
     }
     setLoading(false);
   };
 
   const save = () => {
-    if (!result) return;
-    onSave(client.id, result);
+    updateClient(client.id, {
+      waSummary:      result.summaryEn,
+      waSummaryUrdu:  result.summaryUrdu,
+      waSentiment:    result.sentiment,
+      waTags:         result.tags,
+      nextNudge:      result.nudge,
+    });
     onClose();
   };
 
-  const sentColor = result?.sentiment==="positive"?"#057A55":result?.sentiment==="negative"?"#E02424":"#6B7280";
   const sentBg    = result?.sentiment==="positive"?"#F3FAF7":result?.sentiment==="negative"?"#FDF2F2":"#F3F4F6";
+  const sentColor = result?.sentiment==="positive"?"#057A55":result?.sentiment==="negative"?"#E02424":"#6B7280";
 
   return (
     <Modal title="Log WhatsApp conversation" sub={`Summarise chat with ${client.name}`} onClose={onClose}
       footer={result
-        ? <><Button variant="secondary" onClick={() => setResult(null)}>Re-summarise</Button><Button onClick={save} icon="ti-check">Save summary</Button></>
+        ? <><Button variant="secondary" onClick={() => setResult(null)}>Re-summarise</Button><Button onClick={save} icon="ti-check">Save to profile</Button></>
         : <><Button variant="secondary" onClick={onClose}>Cancel</Button><Button loading={loading} onClick={summarise} icon="ti-sparkles">Generate summary</Button></>
       }>
       {!result ? (
         <>
-          <div style={{ fontSize:12, color:"#9CA3AF" }}>
-            WhatsApp → Open chat → ⋮ → Export chat → Without media → copy all → paste below
-          </div>
+          <div style={{ fontSize:12, color:"#9CA3AF" }}>WhatsApp → Open chat → ⋮ → Export chat → Without media → copy all → paste below</div>
           <textarea value={chatText} onChange={e=>setChatText(e.target.value)} rows={7}
             placeholder={"[2025-05-10, 3:42 PM] Ahmed: bhai rent abhi nahi de sakta\n[2025-05-10, 3:43 PM] Arif: kab tak?\n[2025-05-10, 3:45 PM] Ahmed: ek hafte mein pakka…"}
             style={{ borderRadius:8, border:"1px solid #D1D5DB", padding:"12px 14px", fontSize:13, color:"#374151", fontFamily:"monospace", outline:"none", resize:"vertical", lineHeight:1.6 }}
@@ -233,17 +232,16 @@ function LogWAModal({ client, onClose, onSave }) {
           />
           {error && <div style={{ fontSize:12, color:"#E02424" }}>{error}</div>}
           <div style={{ background:"#F5F3FF", borderRadius:8, padding:"10px 14px", fontSize:12, color:"#6C2BD9" }}>
-            <i className="ti ti-sparkles" style={{ marginRight:5 }} aria-hidden />
-            Fully understands Roman Urdu — "rent nahi de sakta", "agreement pe raazi hun" etc.
+            <i className="ti ti-sparkles" style={{ marginRight:5 }} /> Understands Roman Urdu — "rent nahi de sakta", "agreement pe raazi hun" etc.
           </div>
         </>
       ) : (
         <>
-          <div style={{ fontSize:11, fontWeight:600, color:"#9CA3AF", textTransform:"uppercase", letterSpacing:"0.08em", marginBottom:2 }}>English summary</div>
+          <div style={{ fontSize:11, fontWeight:600, color:"#9CA3AF", textTransform:"uppercase", letterSpacing:"0.08em" }}>English summary</div>
           <div style={{ fontSize:13, color:"#374151", lineHeight:1.65, background:"#F9FAFB", borderRadius:8, padding:"12px 14px" }}>{result.summaryEn}</div>
-          <div style={{ fontSize:11, fontWeight:600, color:"#9CA3AF", textTransform:"uppercase", letterSpacing:"0.08em", marginBottom:2 }}>Roman Urdu</div>
+          <div style={{ fontSize:11, fontWeight:600, color:"#9CA3AF", textTransform:"uppercase", letterSpacing:"0.08em" }}>Roman Urdu</div>
           <div style={{ fontSize:13, color:"#374151", lineHeight:1.65, background:"#F5F3FF", borderRadius:8, padding:"12px 14px" }}>{result.summaryUrdu}</div>
-          <div style={{ display:"flex", gap:8, flexWrap:"wrap", alignItems:"center" }}>
+          <div style={{ display:"flex", gap:8, flexWrap:"wrap" }}>
             <span style={{ background:sentBg, color:sentColor, fontSize:12, fontWeight:500, padding:"3px 10px", borderRadius:20 }}>{result.sentiment} sentiment</span>
             {result.tags?.map(t => <span key={t} style={{ background:"#EBF5FF", color:"#1E40AF", fontSize:12, fontWeight:500, padding:"3px 10px", borderRadius:20 }}>{t}</span>)}
           </div>
@@ -257,33 +255,21 @@ function LogWAModal({ client, onClose, onSave }) {
   );
 }
 
-// ─── Client Detail ────────────────────────────────────────────────────────────
-function ClientDetail({ cl, onBack, onUpdateClient }) {
+function ClientDetail({ cl, onBack }) {
+  const { bookings, units } = useAppStore();
   const [showBooking, setShowBooking] = useState(false);
   const [showWA, setShowWA]           = useState(false);
-  const [bookings, setBookings]       = useState(DEMO_BOOKINGS.filter(b => b.clientId === cl.id));
 
-  const unit    = cl.unitId ? UNITS.find(u => u.id === cl.unitId) : null;
+  const clientBookings = bookings.filter(b => b.clientId === cl.id);
+  const unit    = cl.unitId ? units.find(u => u.id === cl.unitId) : null;
   const project = unit ? PROJECTS.find(p => p.id === unit.projectId) : null;
   const sc = scoreColor(cl.score);
-
-  const handleBook = (booking) => setBookings(prev => [booking, ...prev]);
-  const handleWA   = (clientId, result) => {
-    onUpdateClient(clientId, {
-      waSummary: result.summaryEn,
-      waSummaryUrdu: result.summaryUrdu,
-      waSentiment: result.sentiment,
-      waTags: result.tags,
-      nextNudge: result.nudge,
-    });
-  };
 
   return (
     <div className="p-5">
       <button onClick={onBack} className="flex items-center gap-1.5 text-[13px] text-gray-500 mb-4 hover:text-gray-700">
-        <i className="ti ti-arrow-left text-[15px]" aria-hidden /> Back to clients
+        <i className="ti ti-arrow-left text-[15px]" /> Back to clients
       </button>
-
       <div className="grid grid-cols-2 gap-4">
         <Card>
           <div className="p-5">
@@ -299,22 +285,20 @@ function ClientDetail({ cl, onBack, onUpdateClient }) {
               </div>
             </div>
             {[
-              ["Phone",   cl.phone||"–",                                         "ti-phone"     ],
-              ["CNIC",    cl.cnic||"–",                                           "ti-id"        ],
-              ["City",    cl.city||"–",                                           "ti-map-pin"   ],
-              ["Project", project?.name||"No unit assigned",                      "ti-building"  ],
-              ["Unit",    unit?`Unit ${unit.unitNo} · Floor ${unit.floor}`:"–",   "ti-home"      ],
-              ["Rent",    cl.rentAmount?fmt(cl.rentAmount):"–",                   "ti-coin-rupee"],
+              ["Phone",   cl.phone||"–",                                        "ti-phone"     ],
+              ["CNIC",    cl.cnic||"–",                                          "ti-id"        ],
+              ["City",    cl.city||"–",                                          "ti-map-pin"   ],
+              ["Project", project?.name||"No unit assigned",                     "ti-building"  ],
+              ["Unit",    unit?`Unit ${unit.unitNo} · Floor ${unit.floor}`:"–",  "ti-home"      ],
+              ["Rent",    cl.rentAmount?fmt(cl.rentAmount):"–",                  "ti-coin-rupee"],
             ].map(([k,v,ic]) => (
               <div key={k} className="flex items-center gap-2.5 py-2 border-b border-gray-100">
-                <i className={`ti ${ic} text-gray-400 text-[14px] w-4 shrink-0`} aria-hidden />
+                <i className={`ti ${ic} text-gray-400 text-[14px] w-4 shrink-0`} />
                 <span className="text-[12px] text-gray-400 w-20">{k}</span>
                 <span className="text-[13px] text-gray-800 font-medium">{v}</span>
               </div>
             ))}
             {cl.notes && <div className="mt-3 text-[12px] text-gray-400 italic leading-relaxed">{cl.notes}</div>}
-
-            {/* Action buttons */}
             <div className="flex gap-2 mt-4">
               <Button variant="secondary" fullWidth icon="ti-brand-whatsapp" onClick={() => setShowWA(true)}>Log WA chat</Button>
               <Button variant="secondary" fullWidth icon="ti-calendar-plus" onClick={() => setShowBooking(true)}>Book viewing</Button>
@@ -323,21 +307,14 @@ function ClientDetail({ cl, onBack, onUpdateClient }) {
         </Card>
 
         <div className="flex flex-col gap-3">
-          {/* AI lead score */}
           <Card>
             <div className="p-4">
               <div className="text-[13px] font-semibold text-gray-700 mb-3">AI lead score</div>
-              <div className="text-4xl font-bold font-mono mb-1" style={{ color:sc }}>
-                {cl.score}<span className="text-base text-gray-400 font-normal">/100</span>
-              </div>
-              <div className="h-2 bg-gray-100 rounded-full my-2.5">
-                <div style={{ width:`${cl.score}%`, background:sc }} className="h-full rounded-full" />
-              </div>
+              <div className="text-4xl font-bold font-mono mb-1" style={{ color:sc }}>{cl.score}<span className="text-base text-gray-400 font-normal">/100</span></div>
+              <div className="h-2 bg-gray-100 rounded-full my-2"><div style={{ width:`${cl.score}%`, background:sc }} className="h-full rounded-full" /></div>
               <div className="text-[12px] text-gray-400">Based on payment history, WA sentiment, and response rate.</div>
             </div>
           </Card>
-
-          {/* WA summary */}
           <Card>
             <div className="p-4">
               <div className="flex items-center justify-between mb-3">
@@ -357,46 +334,40 @@ function ClientDetail({ cl, onBack, onUpdateClient }) {
               </div>
             </div>
           </Card>
-
-          {/* Smart nudge */}
           {cl.nextNudge && (
             <div className="bg-blue-50 border border-blue-200 rounded-xl p-3.5 flex gap-2.5">
-              <i className="ti ti-send text-brand-500 text-[15px] mt-0.5 shrink-0" aria-hidden />
+              <i className="ti ti-send text-brand-500 text-[15px] mt-0.5 shrink-0" />
               <div>
                 <div className="text-[12px] font-semibold text-blue-800 mb-0.5">Smart nudge</div>
                 <div className="text-[13px] text-blue-700">{cl.nextNudge}</div>
               </div>
             </div>
           )}
-
-          {/* Risk flags */}
           {cl.riskFlags?.length > 0 && (
             <Card>
               <div className="p-4">
                 <div className="text-[13px] font-semibold text-gray-700 mb-2">Risk flags</div>
                 {cl.riskFlags.map(f => (
                   <div key={f} className="flex items-center gap-2 py-1.5 border-b border-gray-100">
-                    <i className="ti ti-alert-circle text-red-500 text-[14px]" aria-hidden />
+                    <i className="ti ti-alert-circle text-red-500 text-[14px]" />
                     <span className="text-[12px] text-gray-700">{f}</span>
                   </div>
                 ))}
               </div>
             </Card>
           )}
-
-          {/* Bookings history */}
-          {bookings.length > 0 && (
+          {clientBookings.length > 0 && (
             <Card>
-              <PanelHead icon="ti-calendar-event" title="Bookings" sub={`${bookings.length} total`} action="Add" onAction={() => setShowBooking(true)} />
+              <PanelHead icon="ti-calendar-event" title="Bookings" sub={`${clientBookings.length} total`} action="Add" onAction={() => setShowBooking(true)} />
               <div className="px-4">
-                {bookings.map(b => {
-                  const unit = UNITS.find(u => u.id === b.unitId);
-                  const proj = unit ? PROJECTS.find(p => p.id === unit.projectId) : null;
+                {clientBookings.map(b => {
+                  const u = units.find(u => u.id === b.unitId);
+                  const p = u ? PROJECTS.find(pr => pr.id === u.projectId) : null;
                   return (
                     <div key={b.id} className="flex items-center gap-3 py-2.5 border-b border-gray-100">
-                      <i className={`ti ${b.status==="completed"?"ti-circle-check text-emerald-500":b.status==="cancelled"?"ti-circle-x text-red-400":"ti-clock text-brand-500"} text-[15px]`} aria-hidden />
+                      <i className={`ti ${b.status==="completed"?"ti-circle-check text-emerald-500":b.status==="cancelled"?"ti-circle-x text-red-400":"ti-clock text-brand-500"} text-[15px]`} />
                       <div className="flex-1">
-                        <div className="text-[13px] font-medium text-gray-800">{proj?.name} — Unit {unit?.unitNo}</div>
+                        <div className="text-[13px] font-medium text-gray-800">{p?.name} — Unit {u?.unitNo}</div>
                         <div className="text-[11px] text-gray-400">{b.visitDate} · {b.visitTime} · {b.type}</div>
                       </div>
                       <Pill color={b.status==="completed"?"green":b.status==="cancelled"?"red":"blue"}>{b.status}</Pill>
@@ -408,54 +379,48 @@ function ClientDetail({ cl, onBack, onUpdateClient }) {
           )}
         </div>
       </div>
-
-      {showBooking && <BookViewingModal client={cl} onClose={() => setShowBooking(false)} onBook={handleBook} />}
-      {showWA      && <LogWAModal       client={cl} onClose={() => setShowWA(false)}      onSave={handleWA} />}
+      {showBooking && <BookViewingModal client={cl} onClose={() => setShowBooking(false)} />}
+      {showWA      && <LogWAModal       client={cl} onClose={() => setShowWA(false)} />}
     </div>
   );
 }
 
-// ─── Clients Page ─────────────────────────────────────────────────────────────
 export function ClientsPage() {
-  const [clients, setClients]   = useState(DEMO_CLIENTS);
+  const { clients } = useAppStore();
   const [search, setSearch]     = useState("");
   const [filter, setFilter]     = useState("all");
   const [selected, setSelected] = useState(null);
   const [showAdd, setShowAdd]   = useState(false);
 
-  const addClient = (c) => setClients(prev => [c, ...prev]);
-  const updateClient = (id, fields) => setClients(prev => prev.map(c => c.id===id ? { ...c, ...fields } : c));
-
   if (selected) {
     const cl = clients.find(c => c.id === selected);
     if (!cl) { setSelected(null); return null; }
-    return <ClientDetail cl={cl} onBack={() => setSelected(null)} onUpdateClient={updateClient} />;
+    return <ClientDetail cl={cl} onBack={() => setSelected(null)} />;
   }
 
   const filtered = clients.filter(c => {
     const q = search.toLowerCase();
     const matchQ = !q || c.name.toLowerCase().includes(q) || (c.city||"").toLowerCase().includes(q) || c.email.toLowerCase().includes(q);
     const matchF = filter==="all"
-      || (filter==="hot"&&c.score>=75)
-      || (filter==="risk"&&c.score<40)
-      || (filter==="active"&&c.paymentStatus==="paid")
-      || (filter==="prospect"&&c.paymentStatus==="prospect");
+      || (filter==="hot"      && c.score>=75)
+      || (filter==="risk"     && c.score<40)
+      || (filter==="active"   && c.paymentStatus==="paid")
+      || (filter==="prospect" && c.paymentStatus==="prospect");
     return matchQ && matchF;
   });
 
   return (
     <div className="p-5">
-      {/* Summary stats */}
       <div className="grid grid-cols-3 gap-3 mb-4">
         {[
-          [clients.length,                                         "Total clients",  "#1C64F2","#EBF5FF","ti-users"           ],
-          [clients.filter(c=>c.score>=75).length,                 "Hot leads",      "#057A55","#F3FAF7","ti-flame"           ],
-          [clients.filter(c=>c.paymentStatus==="overdue").length, "Overdue",        "#E02424","#FDF2F2","ti-clock-exclamation"],
+          [clients.length,                                         "Total",    "#1C64F2","#EBF5FF","ti-users"           ],
+          [clients.filter(c=>c.score>=75).length,                 "Hot leads","#057A55","#F3FAF7","ti-flame"           ],
+          [clients.filter(c=>c.paymentStatus==="overdue").length, "Overdue",  "#E02424","#FDF2F2","ti-clock-exclamation"],
         ].map(([v,l,fg,bg,ic]) => (
           <div key={l} className="bg-white border border-gray-200 rounded-xl p-4 shadow-sm">
             <div className="flex items-center gap-2 mb-2">
               <div className="w-7 h-7 rounded-lg flex items-center justify-center" style={{ background:bg }}>
-                <i className={`ti ${ic} text-[14px]`} style={{ color:fg }} aria-hidden />
+                <i className={`ti ${ic} text-[14px]`} style={{ color:fg }} />
               </div>
               <span className="text-[12px] text-gray-400">{l}</span>
             </div>
@@ -464,7 +429,6 @@ export function ClientsPage() {
         ))}
       </div>
 
-      {/* Filters + search */}
       <div className="flex items-center gap-2.5 mb-4 flex-wrap">
         <div className="flex gap-1.5 flex-wrap">
           {[["all","All"],["hot","Hot leads"],["active","Active"],["prospect","Prospects"],["risk","At risk"]].map(([v,l]) => (
@@ -476,14 +440,13 @@ export function ClientsPage() {
         </div>
         <div className="flex-1" />
         <div className="flex items-center gap-1.5 bg-white border border-gray-200 rounded-lg px-3 py-1.5 w-52 shadow-sm">
-          <i className="ti ti-search text-gray-400 text-[14px]" aria-hidden />
+          <i className="ti ti-search text-gray-400 text-[14px]" />
           <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search clients…"
             className="bg-transparent border-none outline-none text-[13px] text-gray-700 w-full" />
         </div>
         <Button icon="ti-plus" onClick={() => setShowAdd(true)}>Add client</Button>
       </div>
 
-      {/* Table */}
       <Card>
         <div className="grid px-4 py-3 border-b border-gray-200 text-[11px] font-semibold text-gray-400 uppercase tracking-wider bg-gray-50 rounded-t-xl"
           style={{ gridTemplateColumns:"2fr 2fr 1fr 80px 110px 40px" }}>
@@ -513,24 +476,22 @@ export function ClientsPage() {
               </Pill>
               <div>
                 <div className="text-[12px] font-bold font-mono" style={{ color:sc }}>{cl.score}</div>
-                <div className="h-[3px] bg-gray-100 rounded mt-1 w-10">
-                  <div style={{ width:`${cl.score}%`, background:sc }} className="h-full rounded" />
-                </div>
+                <div className="h-[3px] bg-gray-100 rounded mt-1 w-10"><div style={{ width:`${cl.score}%`, background:sc }} className="h-full rounded" /></div>
               </div>
               <Pill color={cl.statusColor}>{cl.status}</Pill>
-              <i className="ti ti-chevron-right text-gray-300 text-[15px]" aria-hidden />
+              <i className="ti ti-chevron-right text-gray-300 text-[15px]" />
             </div>
           );
         })}
         {filtered.length === 0 && (
           <div className="py-12 text-center">
-            <i className="ti ti-users-off text-3xl text-gray-200 mb-2" aria-hidden />
+            <i className="ti ti-users-off text-3xl text-gray-200 mb-2" />
             <div className="text-[13px] text-gray-400">No clients match your search.</div>
           </div>
         )}
       </Card>
 
-      {showAdd && <AddClientModal onClose={() => setShowAdd(false)} onAdd={addClient} />}
+      {showAdd && <AddClientModal onClose={() => setShowAdd(false)} />}
     </div>
   );
 }

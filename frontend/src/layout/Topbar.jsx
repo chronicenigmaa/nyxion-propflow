@@ -1,7 +1,8 @@
 import { useState } from "react";
 import { Button } from "../components/Button.jsx";
 import { Input } from "../components/Input.jsx";
-import { UNITS, PROJECTS, CLIENTS as DEMO_CLIENTS } from "../data/demo.js";
+import { useAppStore } from "../store/appStore.js";
+import { PROJECTS } from "../data/demo.js";
 import { fmt } from "../lib/utils.js";
 
 const sel = () => ({
@@ -10,6 +11,7 @@ const sel = () => ({
 });
 
 function AddClientModal({ onClose }) {
+  const { addClient, units } = useAppStore();
   const [form, setForm] = useState({ name:"", email:"", phone:"", cnic:"", city:"", unitId:"", notes:"", status:"Prospect" });
   const [errors, setErrors] = useState({});
   const [loading, setLoading] = useState(false);
@@ -31,17 +33,25 @@ function AddClientModal({ onClose }) {
     setLoading(true);
     await new Promise(r => setTimeout(r, 700));
     setLoading(false);
+    const unit = form.unitId ? units.find(u => u.id === form.unitId) : null;
+    addClient({
+      ...form, id:"C_NEW_"+Date.now(), score:50,
+      statusColor:"blue", paymentStatus:"prospect", rentAmount:unit?.rent||null,
+      waSummary:"No conversation recorded yet.", waSummaryUrdu:"Abhi koi baat nahi hui.",
+      waTags:["New client"], waSentiment:"neutral",
+      riskFlags:[], nextNudge:"Make first contact and schedule a viewing.",
+    });
     setDone(true);
   };
 
   if (done) return (
     <div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.45)", display:"flex", alignItems:"center", justifyContent:"center", zIndex:50 }}>
-      <div style={{ background:"#fff", borderRadius:16, width:"100%", maxWidth:400, padding:"32px", textAlign:"center", boxShadow:"0 24px 64px rgba(0,0,0,0.18)" }}>
+      <div style={{ background:"#fff", borderRadius:16, width:"100%", maxWidth:380, padding:"32px", textAlign:"center", boxShadow:"0 24px 64px rgba(0,0,0,0.18)" }}>
         <div style={{ width:52, height:52, background:"#F3FAF7", borderRadius:14, display:"inline-flex", alignItems:"center", justifyContent:"center", marginBottom:14 }}>
-          <i className="ti ti-user-check" style={{ fontSize:26, color:"#057A55" }} aria-hidden />
+          <i className="ti ti-user-check" style={{ fontSize:26, color:"#057A55" }} />
         </div>
         <div style={{ fontSize:17, fontWeight:600, color:"#111827", marginBottom:6 }}>{form.name} added</div>
-        <div style={{ fontSize:13, color:"#6B7280", marginBottom:20 }}>Client has been added. Go to the Clients page to view and manage them.</div>
+        <div style={{ fontSize:13, color:"#6B7280", marginBottom:20 }}>Client added. Go to the Clients page to view and manage.</div>
         <Button fullWidth onClick={onClose} icon="ti-check">Done</Button>
       </div>
     </div>
@@ -77,10 +87,10 @@ function AddClientModal({ onClose }) {
             </select>
           </div>
           <div style={{ display:"flex", flexDirection:"column", gap:4 }}>
-            <label style={{ fontSize:13, fontWeight:500, color:"#374151" }}>Assign unit (optional — vacant only)</label>
+            <label style={{ fontSize:13, fontWeight:500, color:"#374151" }}>Assign vacant unit (optional)</label>
             <select value={form.unitId} onChange={set("unitId")} style={sel()}>
-              <option value="">No unit assigned yet</option>
-              {UNITS.filter(u => u.status==="vacant").map(u => {
+              <option value="">No unit assigned</option>
+              {units.filter(u => u.status==="vacant").map(u => {
                 const p = PROJECTS.find(pr => pr.id===u.projectId);
                 return <option key={u.id} value={u.id}>{p?.name} — Unit {u.unitNo} (Floor {u.floor}) · {fmt(u.rent)}/mo</option>;
               })}
@@ -88,7 +98,7 @@ function AddClientModal({ onClose }) {
           </div>
           <div style={{ display:"flex", flexDirection:"column", gap:4 }}>
             <label style={{ fontSize:13, fontWeight:500, color:"#374151" }}>Notes (optional)</label>
-            <textarea value={form.notes} onChange={set("notes")} placeholder="Referral source, requirements, budget…" rows={2}
+            <textarea value={form.notes} onChange={set("notes")} placeholder="Referral, budget, requirements…" rows={2}
               style={{ borderRadius:8, border:"1px solid #D1D5DB", padding:"10px 12px", fontSize:14, color:"#111827", fontFamily:"inherit", outline:"none", resize:"none" }}
               onFocus={e=>{e.target.style.borderColor="#1C64F2";e.target.style.boxShadow="0 0 0 3px #EBF5FF";}}
               onBlur={e=>{e.target.style.borderColor="#D1D5DB";e.target.style.boxShadow="none";}}
@@ -106,7 +116,6 @@ function AddClientModal({ onClose }) {
 
 export function Topbar({ title, sub }) {
   const [showAddClient, setShowAddClient] = useState(false);
-
   return (
     <>
       <header className="h-[54px] bg-white border-b border-gray-200 shadow-sm flex items-center gap-3 px-5 shrink-0">
@@ -114,21 +123,16 @@ export function Topbar({ title, sub }) {
           <h1 className="text-[15px] font-semibold text-gray-900 tracking-tight">{title}</h1>
           {sub && <p className="text-[11px] text-gray-400 mt-0.5">{sub}</p>}
         </div>
-
         <div className="flex items-center gap-1.5 bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 w-52">
           <i className="ti ti-search text-gray-400 text-[13px]" aria-hidden />
-          <input placeholder="Search clients, units…"
-            className="bg-transparent border-none outline-none text-[12px] text-gray-700 placeholder:text-gray-400 w-full" />
+          <input placeholder="Search clients, units…" className="bg-transparent border-none outline-none text-[12px] text-gray-700 placeholder:text-gray-400 w-full" />
         </div>
-
         <div className="relative w-9 h-9 rounded-lg border border-gray-200 bg-gray-50 flex items-center justify-center cursor-pointer hover:bg-gray-100 transition-colors shadow-sm">
           <i className="ti ti-bell text-gray-600 text-[15px]" aria-hidden />
           <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-red-500 rounded-full border-2 border-white" />
         </div>
-
         <Button size="sm" icon="ti-plus" onClick={() => setShowAddClient(true)}>Add client</Button>
       </header>
-
       {showAddClient && <AddClientModal onClose={() => setShowAddClient(false)} />}
     </>
   );

@@ -3,7 +3,8 @@ import { Card, Avatar, Pill } from "../components/index.jsx";
 import { Button } from "../components/Button.jsx";
 import { Input } from "../components/Input.jsx";
 import { fmt } from "../lib/utils.js";
-import { PAYMENTS as DEMO_PAYMENTS, CLIENTS, UNITS, PROJECTS } from "../data/demo.js";
+import { useAppStore } from "../store/appStore.js";
+import { UNITS, PROJECTS } from "../data/demo.js";
 
 const sel = (err) => ({
   height:40, width:"100%", borderRadius:8, border:`1px solid ${err?"#E02424":"#D1D5DB"}`,
@@ -30,7 +31,8 @@ function Modal({ title, sub, onClose, children, footer }) {
   );
 }
 
-function AddPaymentModal({ onClose, onAdd }) {
+function AddPaymentModal({ onClose, clients }) {
+  const { addPayment } = useAppStore();
   const [form, setForm] = useState({ clientId:"", unitId:"", amount:"", dueDate:"", note:"" });
   const [errors, setErrors] = useState({});
   const [loading, setLoading] = useState(false);
@@ -38,9 +40,9 @@ function AddPaymentModal({ onClose, onAdd }) {
 
   const validate = () => {
     const e = {};
-    if (!form.clientId) e.clientId = "Select a client";
-    if (!form.amount || isNaN(form.amount)) e.amount = "Enter a valid amount";
-    if (!form.dueDate) e.dueDate = "Select a due date";
+    if (!form.clientId)               e.clientId = "Select a client";
+    if (!form.amount||isNaN(form.amount)) e.amount = "Enter a valid amount";
+    if (!form.dueDate)                e.dueDate  = "Select a due date";
     return e;
   };
 
@@ -50,12 +52,11 @@ function AddPaymentModal({ onClose, onAdd }) {
     setLoading(true);
     await new Promise(r => setTimeout(r, 600));
     setLoading(false);
-    onAdd({
-      id: "PY_NEW_" + Date.now(),
-      clientId: form.clientId, unitId: form.unitId || null,
-      amount: Number(form.amount), due: form.dueDate,
-      paid: null, status: "upcoming", daysLate: 0,
-      aiLabel: "Upcoming", aiColor: "blue", note: form.note,
+    addPayment({
+      id:"PY_NEW_"+Date.now(), clientId:form.clientId,
+      unitId:form.unitId||null, amount:Number(form.amount),
+      due:form.dueDate, paid:null, status:"upcoming",
+      daysLate:0, aiLabel:"Upcoming", aiColor:"blue", note:form.note,
     });
     onClose();
   };
@@ -67,7 +68,7 @@ function AddPaymentModal({ onClose, onAdd }) {
         <label style={{ fontSize:13, fontWeight:500, color:"#374151" }}>Client</label>
         <select value={form.clientId} onChange={set("clientId")} style={sel(errors.clientId)}>
           <option value="">Select client…</option>
-          {CLIENTS.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+          {clients.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
         </select>
         {errors.clientId && <span style={{ fontSize:12, color:"#E02424" }}>{errors.clientId}</span>}
       </div>
@@ -76,7 +77,7 @@ function AddPaymentModal({ onClose, onAdd }) {
         <select value={form.unitId} onChange={set("unitId")} style={sel(false)}>
           <option value="">No unit</option>
           {UNITS.map(u => {
-            const p = PROJECTS.find(pr => pr.id === u.projectId);
+            const p = PROJECTS.find(pr => pr.id===u.projectId);
             return <option key={u.id} value={u.id}>{p?.name} — Unit {u.unitNo}</option>;
           })}
         </select>
@@ -97,19 +98,23 @@ function AddPaymentModal({ onClose, onAdd }) {
   );
 }
 
-function MarkPaidModal({ payment, onClose, onConfirm }) {
+function MarkPaidModal({ payment, onClose, clients }) {
+  const { markPaymentPaid } = useAppStore();
   const [paidDate, setPaidDate] = useState(new Date().toISOString().split("T")[0]);
-  const [loading, setLoading] = useState(false);
-  const client = CLIENTS.find(c => c.id === payment.clientId);
+  const [loading, setLoading]   = useState(false);
+  const client = clients.find(c => c.id === payment.clientId);
+
   const confirm = async () => {
     setLoading(true);
     await new Promise(r => setTimeout(r, 500));
     setLoading(false);
-    onConfirm(paidDate); onClose();
+    markPaymentPaid(payment.id, paidDate);
+    onClose();
   };
+
   return (
     <Modal title="Mark as paid" sub={`Confirm receipt from ${client?.name}`} onClose={onClose}
-      footer={<><Button variant="secondary" onClick={onClose}>Cancel</Button><Button loading={loading} onClick={confirm} icon="ti-circle-check">Confirm</Button></>}>
+      footer={<><Button variant="secondary" onClick={onClose}>Cancel</Button><Button loading={loading} onClick={confirm} icon="ti-circle-check">Confirm payment</Button></>}>
       <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-4">
         <div className="text-[12px] text-emerald-600 font-semibold mb-1">{client?.name}</div>
         <div className="text-2xl font-bold font-mono text-emerald-700">{fmt(payment.amount)}</div>
@@ -120,22 +125,88 @@ function MarkPaidModal({ payment, onClose, onConfirm }) {
   );
 }
 
+function EditPaymentModal({ payment, onClose, clients }) {
+  const { updatePayment } = useAppStore();
+  const [form, setForm] = useState({
+    amount: String(payment.amount),
+    dueDate: payment.due || "",
+    status: payment.status,
+    aiLabel: payment.aiLabel,
+    note: payment.note || "",
+  });
+  const [loading, setLoading] = useState(false);
+  const set = k => e => setForm(f => ({ ...f, [k]: e.target.value }));
+  const client = clients.find(c => c.id === payment.clientId);
+
+  const submit = async () => {
+    setLoading(true);
+    await new Promise(r => setTimeout(r, 500));
+    setLoading(false);
+    updatePayment(payment.id, {
+      amount: Number(form.amount),
+      due: form.dueDate,
+      status: form.status,
+      aiLabel: form.aiLabel,
+      note: form.note,
+    });
+    onClose();
+  };
+
+  return (
+    <Modal title="Edit payment" sub={client?.name} onClose={onClose}
+      footer={<><Button variant="secondary" onClick={onClose}>Cancel</Button><Button loading={loading} onClick={submit} icon="ti-check">Save changes</Button></>}>
+      <Input label="Amount (Rs.)" value={form.amount} onChange={set("amount")} placeholder="120000" icon="ti-coin-rupee" />
+      <Input label="Due date" type="date" value={form.dueDate} onChange={set("dueDate")} />
+      <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:12 }}>
+        <div style={{ display:"flex", flexDirection:"column", gap:4 }}>
+          <label style={{ fontSize:13, fontWeight:500, color:"#374151" }}>Status</label>
+          <select value={form.status} onChange={set("status")} style={sel(false)}>
+            <option value="upcoming">Upcoming</option>
+            <option value="overdue">Overdue</option>
+            <option value="paid">Paid</option>
+          </select>
+        </div>
+        <div style={{ display:"flex", flexDirection:"column", gap:4 }}>
+          <label style={{ fontSize:13, fontWeight:500, color:"#374151" }}>AI label</label>
+          <select value={form.aiLabel} onChange={set("aiLabel")} style={sel(false)}>
+            <option value="On time">On time</option>
+            <option value="Upcoming">Upcoming</option>
+            <option value="Likely to pay">Likely to pay</option>
+            <option value="Likely to miss">Likely to miss</option>
+            <option value="Escalate">Escalate</option>
+          </select>
+        </div>
+      </div>
+      <div style={{ display:"flex", flexDirection:"column", gap:4 }}>
+        <label style={{ fontSize:13, fontWeight:500, color:"#374151" }}>Note</label>
+        <textarea value={form.note} onChange={set("note")} rows={2}
+          style={{ borderRadius:8, border:"1px solid #D1D5DB", padding:"10px 12px", fontSize:14, color:"#111827", fontFamily:"inherit", outline:"none", resize:"none" }}
+          onFocus={e=>{e.target.style.borderColor="#1C64F2";e.target.style.boxShadow="0 0 0 3px #EBF5FF";}}
+          onBlur={e=>{e.target.style.borderColor="#D1D5DB";e.target.style.boxShadow="none";}}
+        />
+      </div>
+    </Modal>
+  );
+}
+
+function sendReminder(client, payment) {
+  const msg = encodeURIComponent(
+    `Assalam o Alaikum ${client?.name?.split(" ")[0]},\n\nYeh aik yaad daani hai ke aapka ${fmt(payment.amount)} ka payment ${payment.due} tak due tha.\n\nKripya jald se jald payment karen.\n\nShukriya,\nNyxion Properties`
+  );
+  window.open(`https://wa.me/${client?.phone?.replace(/\D/g,"")}?text=${msg}`, "_blank");
+}
+
 export function PaymentsPage() {
-  const [payments, setPayments] = useState(DEMO_PAYMENTS);
+  const { payments, removePayment, clients } = useAppStore();
   const [filter, setFilter]     = useState("all");
   const [showAdd, setShowAdd]   = useState(false);
   const [markPaid, setMarkPaid] = useState(null);
+  const [editing, setEditing]   = useState(null);
 
   const filtered = payments.filter(p => filter === "all" || p.status === filter);
-  const paid     = payments.filter(p => p.status === "paid").reduce((a,p) => a+p.amount, 0);
-  const overdue  = payments.filter(p => p.status === "overdue").reduce((a,p) => a+p.amount, 0);
-  const upcoming = payments.filter(p => p.status === "upcoming").reduce((a,p) => a+(p.amount||0), 0);
-
-  const confirmPaid = (id, date) => setPayments(prev => prev.map(p =>
-    p.id === id ? { ...p, status:"paid", paid:date, daysLate:0, aiLabel:"On time", aiColor:"green" } : p
-  ));
-
-  const remove = (id) => { if (window.confirm("Remove this payment?")) setPayments(prev => prev.filter(p => p.id !== id)); };
+  const paid     = payments.filter(p => p.status==="paid").reduce((a,p) => a+p.amount, 0);
+  const overdue  = payments.filter(p => p.status==="overdue").reduce((a,p) => a+p.amount, 0);
+  const upcoming = payments.filter(p => p.status==="upcoming").reduce((a,p) => a+(p.amount||0), 0);
 
   return (
     <div className="p-5">
@@ -171,22 +242,22 @@ export function PaymentsPage() {
 
       <Card>
         <div className="grid px-4 py-3 border-b border-gray-200 text-[11px] font-semibold text-gray-400 uppercase tracking-wider bg-gray-50 rounded-t-xl"
-          style={{ gridTemplateColumns:"2fr 2fr 1fr 1fr 110px 130px" }}>
+          style={{ gridTemplateColumns:"2fr 2fr 1fr 1fr 110px 180px" }}>
           <span>Client</span><span>Unit</span><span>Amount</span><span>Date</span><span>Status</span><span>Actions</span>
         </div>
         {filtered.length === 0 && <div className="py-12 text-center text-[13px] text-gray-400">No payments found.</div>}
         {filtered.map(p => {
           const unit    = UNITS.find(u => u.id === p.unitId);
-          const project = unit ? PROJECTS.find(pr => pr.id === unit.projectId) : null;
-          const client  = CLIENTS.find(c => c.id === p.clientId);
+          const project = unit ? PROJECTS.find(pr => pr.id===unit.projectId) : null;
+          const client  = clients.find(c => c.id === p.clientId);
           return (
             <div key={p.id} className="grid items-center px-4 py-3.5 border-b border-gray-100 hover:bg-gray-50 transition-colors"
-              style={{ gridTemplateColumns:"2fr 2fr 1fr 1fr 110px 130px" }}>
+              style={{ gridTemplateColumns:"2fr 2fr 1fr 1fr 110px 180px" }}>
               <div className="flex items-center gap-2.5">
                 <Avatar name={client?.name||"–"} size={30} />
                 <div>
-                  <div className="text-[13px] font-medium text-gray-900">{client?.name||"–"}</div>
-                  {p.status==="overdue" && <div className="text-[11px] text-red-500 font-medium">{p.daysLate} days overdue</div>}
+                  <div className="text-[13px] font-semibold text-gray-900">{client?.name||"–"}</div>
+                  {p.status==="overdue" && <div className="text-[11px] text-red-500 font-semibold">{p.daysLate} days overdue</div>}
                   {p.note && <div className="text-[11px] text-gray-400">{p.note}</div>}
                 </div>
               </div>
@@ -199,15 +270,27 @@ export function PaymentsPage() {
               </div>
               <div className="text-[12px] text-gray-500">{p.paid||p.due||"–"}</div>
               <Pill color={p.aiColor}>{p.aiLabel}</Pill>
-              <div className="flex gap-1.5">
+
+              {/* Action buttons */}
+              <div className="flex gap-1">
                 {p.status !== "paid" && (
-                  <button onClick={() => setMarkPaid(p)}
-                    className="flex items-center gap-1 px-2.5 py-1.5 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-lg text-[11px] font-semibold hover:bg-emerald-100 transition-colors">
-                    <i className="ti ti-check text-[12px]" aria-hidden /> Mark paid
+                  <button onClick={() => setMarkPaid(p)} title="Mark paid"
+                    className="flex items-center gap-1 px-2 py-1.5 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-lg text-[11px] font-semibold hover:bg-emerald-100 transition-colors">
+                    <i className="ti ti-check text-[12px]" aria-hidden /> Paid
                   </button>
                 )}
-                <button onClick={() => remove(p.id)}
-                  className="w-7 h-7 flex items-center justify-center bg-red-50 text-red-400 border border-red-100 rounded-lg hover:bg-red-100 transition-colors">
+                {p.status !== "paid" && client?.phone && (
+                  <button onClick={() => sendReminder(client, p)} title="Send WhatsApp reminder"
+                    className="flex items-center justify-center w-7 h-7 bg-green-50 text-green-600 border border-green-200 rounded-lg hover:bg-green-100 transition-colors">
+                    <i className="ti ti-brand-whatsapp text-[13px]" aria-hidden />
+                  </button>
+                )}
+                <button onClick={() => setEditing(p)} title="Edit"
+                  className="flex items-center justify-center w-7 h-7 bg-blue-50 text-brand-500 border border-blue-200 rounded-lg hover:bg-blue-100 transition-colors">
+                  <i className="ti ti-pencil text-[12px]" aria-hidden />
+                </button>
+                <button onClick={() => { if(window.confirm("Remove this payment?")) removePayment(p.id); }} title="Delete"
+                  className="flex items-center justify-center w-7 h-7 bg-red-50 text-red-400 border border-red-100 rounded-lg hover:bg-red-100 transition-colors">
                   <i className="ti ti-trash text-[12px]" aria-hidden />
                 </button>
               </div>
@@ -216,8 +299,9 @@ export function PaymentsPage() {
         })}
       </Card>
 
-      {showAdd && <AddPaymentModal onClose={() => setShowAdd(false)} onAdd={p => setPayments(prev => [p, ...prev])} />}
-      {markPaid && <MarkPaidModal payment={markPaid} onClose={() => setMarkPaid(null)} onConfirm={(d) => confirmPaid(markPaid.id, d)} />}
+      {showAdd  && <AddPaymentModal onClose={() => setShowAdd(false)}  clients={clients} />}
+      {markPaid && <MarkPaidModal   payment={markPaid} onClose={() => setMarkPaid(null)} clients={clients} />}
+      {editing  && <EditPaymentModal payment={editing} onClose={() => setEditing(null)}  clients={clients} />}
     </div>
   );
 }
