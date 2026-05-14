@@ -2,8 +2,7 @@ import { useState } from "react";
 import { Card, PanelHead, Avatar, Pill, Alert } from "../components/index.jsx";
 import { Button } from "../components/Button.jsx";
 import { fmt, scoreColor } from "../lib/utils.js";
-import { CLIENTS, UNITS, PROJECTS, NUDGES, RISKS } from "../data/demo.js";
-
+import { CLIENTS, UNITS, PROJECTS, PAYMENTS, NUDGES, RISKS } from "../data/demo.js";
 export function ClientsPage() {
   const [search, setSearch]     = useState("");
   const [filter, setFilter]     = useState("all");
@@ -174,7 +173,6 @@ export function ClientsPage() {
 }
 
 export function PaymentsPage() {
-  const { PAYMENTS } = require("../data/demo.js");
   const paid     = PAYMENTS.filter(p=>p.status==="paid").reduce((a,p)=>a+p.amount,0);
   const overdue  = PAYMENTS.filter(p=>p.status==="overdue").reduce((a,p)=>a+p.amount,0);
   const upcoming = PAYMENTS.filter(p=>p.status==="upcoming").reduce((a,p)=>a+(p.amount||0),0);
